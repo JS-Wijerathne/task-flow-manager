@@ -60,15 +60,6 @@ ehthumbs.db
 prisma/migrations/
 
 # ─────────────────────────────────────────────
-# Planning & Scaffold Docs (not for repo)
-# ─────────────────────────────────────────────
-ARCHITECTURE_GUIDE.md
-EXECUTION_PLAN.md
-GETTING_STARTED.md
-REQUIREMENTS_UPDATE.md
-START_HERE.md
-
-# ─────────────────────────────────────────────
 # GitHub Skills (template cruft)
 # ─────────────────────────────────────────────
 .github/skills/
