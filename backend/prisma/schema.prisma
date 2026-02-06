@@ -1,0 +1,136 @@
+// backend/prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// --------------------------------------------------------
+// ENUMS
+// --------------------------------------------------------
+
+enum UserRole {
+  ADMIN // Full access: Manage users, projects, tasks.
+  MEMBER // Project-level access: Can manage tasks in assigned projects.
+  VIEWER // Read-only access: Can view assigned projects and tasks.
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+}
+
+enum ProjectRole {
+  MEMBER // Can manage tasks in the project
+  VIEWER // Read-only access to the project
+}
+
+// --------------------------------------------------------
+// MODELS
+// --------------------------------------------------------
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  name      String
+  password  String // In a real app, this is hashed
+  role      UserRole @default(VIEWER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  projects      ProjectMember[] // Projects this user is assigned to
+  assignedTasks Task[]          @relation("TaskAssignee")
+  reportedTasks Task[]          @relation("TaskReporter")
+  auditLogs     AuditLog[]      @relation("AuditActor")
+
+  @@map("users")
+}
+
+model Project {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  members ProjectMember[]
+  tasks   Task[]
+
+  @@map("projects")
+}
+
+// Join table for User <-> Project
+// projectRole determines per-project permissions (separate from global User.role)
+model ProjectMember {
+  id          String      @id @default(uuid())
+  projectId   String
+  userId      String
+  projectRole ProjectRole @default(MEMBER)
+  joinedAt    DateTime    @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId]) // Prevent duplicate membership
+  @@map("project_members")
+}
+
+model Task {
+  id          String     @id @default(uuid())
+  title       String
+  description String?
+  status      TaskStatus @default(TODO)
+  priority    String? // Optional: Low, Medium, High
+  dueDate     DateTime?
+  completedAt DateTime? // Timestamp when task was marked DONE
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  projectId  String
+  assigneeId String?
+  reporterId String
+
+  // Relations
+  project  Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assignee User?   @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  reporter User    @relation("TaskReporter", fields: [reporterId], references: [id])
+
+  @@index([projectId])
+  @@index([status])
+  @@index([dueDate]) // Optimizes overdue task queries
+  @@index([assigneeId]) // Optimizes assignee-based filtering
+  @@map("tasks")
+}
+
+model AuditLog {
+  id         String      @id @default(uuid())
+  entityType String // e.g., "Project", "Task"
+  entityId   String // The ID of the modified entity
+  action     AuditAction
+  actorId    String // User who performed the action
+  timestamp  DateTime    @default(now())
+
+  // Stores the diff or snapshot. 
+  // For UPDATE: { "status": { "old": "TODO", "new": "IN_PROGRESS" } }
+  // For CREATE: The entire object
+  details Json? @db.JsonB
+
+  actor User @relation("AuditActor", fields: [actorId], references: [id])
+
+  @@index([entityType, entityId])
+  @@index([timestamp]) // Optimizes history pagination
+  @@index([entityType, entityId, timestamp]) // Composite index for efficient entity history queries
+  @@map("audit_logs")
+}
