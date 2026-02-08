@@ -8,7 +8,7 @@ interface CreateTaskData {
     title: string;
     description?: string;
     priority?: string;
-    dueDate?: Date;
+    dueDate?: string; // Date string from frontend (e.g., "2026-02-28")
     projectId: string;
     assigneeId?: string | null;
 }
@@ -18,7 +18,7 @@ interface UpdateTaskData {
     description?: string | null;
     status?: TaskStatus;
     priority?: string | null;
-    dueDate?: Date | null;
+    dueDate?: string | null; // Date string from frontend (e.g., "2026-02-28")
     assigneeId?: string | null;
 }
 
@@ -126,13 +126,16 @@ export class TaskService {
         // Validate assignee before transaction
         await this.validateAssignee(data.projectId, data.assigneeId);
 
+        // Convert date string to Date object for Prisma
+        const dueDate = data.dueDate ? new Date(data.dueDate) : undefined;
+
         return prisma.$transaction(async (tx) => {
             const task = await tx.task.create({
                 data: {
                     title: data.title,
                     description: data.description,
                     priority: data.priority,
-                    dueDate: data.dueDate,
+                    dueDate,
                     projectId: data.projectId,
                     assigneeId: data.assigneeId,
                     reporterId: actorId,
@@ -179,8 +182,16 @@ export class TaskService {
             await this.validateAssignee(current.projectId, data.assigneeId);
         }
 
+        // Convert date string to Date object for Prisma
+        const dueDate = data.dueDate !== undefined
+            ? (data.dueDate ? new Date(data.dueDate) : null)
+            : undefined;
+
         // Handle status transition to DONE
-        const updateData: UpdateTaskData & { completedAt?: Date | null } = { ...data };
+        const updateData: Omit<UpdateTaskData, 'dueDate'> & { dueDate?: Date | null; completedAt?: Date | null } = {
+            ...data,
+            dueDate,
+        };
         if (data.status === TaskStatus.DONE && current.status !== TaskStatus.DONE) {
             updateData.completedAt = new Date();
         } else if (data.status && data.status !== TaskStatus.DONE && current.status === TaskStatus.DONE) {

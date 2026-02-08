@@ -48,8 +48,8 @@ export const CreateTaskSchema = z.object({
     title: z.string().min(3, 'Task title must be at least 3 characters').max(200),
     description: z.string().max(2000).optional(),
     priority: z.enum(['Low', 'Medium', 'High']).optional(),
-    dueDate: z.string().datetime().optional(),
-    assigneeId: z.string().uuid().nullable().optional(),
+    dueDate: z.string().optional().transform(val => val || undefined), // Accepts date string like "2026-02-07" from HTML date input
+    assigneeId: z.string().optional().transform(val => val || undefined).pipe(z.string().uuid().optional()),
 });
 
 export const UpdateTaskSchema = z.object({
@@ -57,8 +57,8 @@ export const UpdateTaskSchema = z.object({
     description: z.string().max(2000).nullable().optional(),
     status: z.nativeEnum(TaskStatus).optional(),
     priority: z.enum(['Low', 'Medium', 'High']).nullable().optional(),
-    dueDate: z.string().datetime().nullable().optional(),
-    assigneeId: z.string().uuid().nullable().optional(),
+    dueDate: z.string().nullable().optional().transform(val => val || undefined), // Accepts date string like "2026-02-07" from HTML date input
+    assigneeId: z.string().optional().transform(val => val || undefined).pipe(z.string().uuid().optional()),
 });
 
 // ============================================
